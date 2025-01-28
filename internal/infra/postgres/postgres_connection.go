@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/Rafin000/call-recording-service-v2/common"
+	"github.com/Rafin000/call-recording-service-v2/internal/common"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
 )
