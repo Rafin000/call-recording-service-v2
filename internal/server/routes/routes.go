@@ -9,5 +9,7 @@ import (
 
 func InitRoutes(rg *gin.RouterGroup, db *sql.DB, config *common.AppConfig) {
 	registerAliveRoute(rg)
-	
+
+	userGroup := rg.Group("/users")
+	registerUserRoutes(rg, userGroup)
 }
