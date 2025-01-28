@@ -53,9 +53,9 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		Name:      user.Name,
 		Email:     user.Email,
 		Password:  string(hashedPassword),
-		Role:      "user",                          // Default role
-		CreatedAt: time.Now().Format(time.RFC3339), // Format time as string
-		UpdatedAt: time.Now().Format(time.RFC3339), // Format time as string
+		Role:      "user",     // Default role
+		CreatedAt: time.Now(), // Format time as string
+		UpdatedAt: time.Now(), // Format time as string
 	}
 
 	// Save the user to the database
@@ -217,7 +217,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 }
 
 func (h *UserHandler) ChangePassword(c *gin.Context) {
-	var passwordData ChangePassword
+	var passwordData domain.ChangePassword
 	if err := c.ShouldBindJSON(&passwordData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -254,7 +254,7 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 }
 
 func (h *UserHandler) AdminChangePassword(c *gin.Context) {
-	var passwordData AdminPasswordChange
+	var passwordData domain.Login
 	if err := c.ShouldBindJSON(&passwordData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
