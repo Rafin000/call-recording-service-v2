@@ -14,6 +14,7 @@ import (
 type AppConfig struct {
 	App     AppSettings   `mapstructure:"app"`
 	MongoDB MongoDBConfig `mapstructure:"mongodb"`
+	Redis   RedisConfig   `mapstructure:"redis"`
 }
 
 type AppSettings struct {
@@ -31,6 +32,13 @@ type AppSettings struct {
 type MongoDBConfig struct {
 	URI      string `mapstructure:"url"`
 	Database string `mapstructure:"database"`
+}
+
+type RedisConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Password string `mapstructure:"password"`
+	DB       int    `mapstructure:"db"`
 }
 
 func LoadConfig() (*AppConfig, error) {

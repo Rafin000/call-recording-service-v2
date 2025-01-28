@@ -11,6 +11,7 @@ import (
 	"github.com/Rafin000/call-recording-service-v2/internal/server/middlewares"
 	"github.com/Rafin000/call-recording-service-v2/internal/server/routes"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -22,6 +23,7 @@ type Server struct {
 	httpServer *http.Server
 	DB         *mongo.Database
 	Config     *common.AppConfig
+	Redis      *redis.Client
 }
 
 func NewServer(ctx context.Context) (*Server, error) {
@@ -38,6 +40,12 @@ func NewServer(ctx context.Context) (*Server, error) {
 	// 	return nil, err
 	// }
 
+	// Setup Redis connection
+	redisClient, err := setupRedis(ctx, cfg.Redis)
+	if err != nil {
+		return nil, err
+	}
+
 	// Setup MongoDB connection
 	mongoDB, err := setupMongoDB(ctx, cfg.MongoDB)
 	if err != nil {
@@ -50,6 +58,7 @@ func NewServer(ctx context.Context) (*Server, error) {
 		Router: router,
 		DB:     mongoDB,
 		Config: cfg,
+		Redis:  redisClient,
 		httpServer: &http.Server{
 			Addr:    cfg.App.ServerAddress,
 			Handler: router,
@@ -168,4 +177,22 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func setupRedis(ctx context.Context, redisConfig common.RedisConfig) (*redis.Client, error) {
+	options := &redis.Options{
+		Addr:     fmt.Sprintf("%s:%d", redisConfig.Host, redisConfig.Port),
+		Password: redisConfig.Password,
+		DB:       redisConfig.DB,
+	}
+
+	client := redis.NewClient(options)
+
+	// Test the connection
+	_, err := client.Ping().Result()
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
+	}
+
+	return client, nil
 }
