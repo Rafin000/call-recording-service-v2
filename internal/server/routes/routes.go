@@ -1,15 +1,19 @@
 package routes
 
 import (
-	"database/sql"
-
 	"github.com/Rafin000/call-recording-service-v2/internal/common"
+	"github.com/Rafin000/call-recording-service-v2/internal/domain"
+	"github.com/Rafin000/call-recording-service-v2/internal/server/middlewares"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func InitRoutes(rg *gin.RouterGroup, db *sql.DB, config *common.AppConfig) {
+func InitRoutes(rg *gin.RouterGroup, mongoDB *mongo.Database, config *common.AppConfig) {
+	userRepo := domain.NewUserRepository(mongoDB)
+
 	registerAliveRoute(rg)
 
 	userGroup := rg.Group("/users")
-	registerUserRoutes(rg, userGroup)
+	userGroup.Use(middlewares.TokenRequired())
+	registerUserRoutes(userGroup, userRepo)
 }

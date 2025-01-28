@@ -147,6 +147,7 @@ import (
 
 type UserRepository interface {
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
+	GetUserById(ctx context.Context, userID primitive.ObjectID) (*User, error)
 	CreateUser(ctx context.Context, user User) (primitive.ObjectID, error)
 	UpdateUser(ctx context.Context, userID primitive.ObjectID, data map[string]interface{}) error
 	GetAllUsers(ctx context.Context, currentPage int, pageSize int) (PaginatedUsers, error)
@@ -254,4 +255,14 @@ func (r *userRepository) GetAllUsersWithICustomer(ctx context.Context) ([]User, 
 	}
 
 	return users, nil
+}
+
+func (r *userRepository) GetUserById(ctx context.Context, userID primitive.ObjectID) (*User, error) {
+	var user User
+	filter := bson.M{"_id": userID, "is_active": true}
+	err := r.collection.FindOne(ctx, filter).Decode(&user)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
 }

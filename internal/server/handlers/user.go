@@ -10,6 +10,7 @@ import (
 	"github.com/Rafin000/call-recording-service-v2/internal/domain"
 	"github.com/Rafin000/call-recording-service-v2/internal/utils"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -35,7 +36,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	defer cancel()
 
 	// Check if the user already exists
-	existingUser, err := h.userRepo.GetUserByEmail(ctx, user.Email)
+	existingUser, _ := h.userRepo.GetUserByEmail(ctx, user.Email)
 	if existingUser != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "User already exists."})
 		return
@@ -183,8 +184,15 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), common.Timeouts.User.Write)
 	defer cancel()
 
+	// Convert userId to primitive.ObjectID
+	userIdHex, err := primitive.ObjectIDFromHex(userId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid user ID."})
+		return
+	}
+
 	// Check if user exists
-	user, _ := h.userRepo.GetUserById(ctx, userId)
+	user, _ := h.userRepo.GetUserById(ctx, userIdHex)
 	if user == nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "User not found."})
 		return
@@ -192,28 +200,42 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 
 	// Check if email already exists
 	existingUser, _ := h.userRepo.GetUserByEmail(ctx, updateData.Email)
-	if existingUser != nil && existingUser.ID != user.Id {
+	if existingUser != nil && existingUser.ID != user.ID {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "User with this email already exists."})
 		return
 	}
 
-	// Update user details
-	user.Name = updateData.Name
-	user.Email = updateData.Email
-	user.UpdatedAt = time.Now()
-	if updateData.Role != "" {
-		user.Role = updateData.Role
+	// Create a map to hold the fields to be updated
+	updateFields := make(map[string]interface{})
+
+	// Assign fields to the map if they are non-zero
+	if updateData.Name != "" {
+		updateFields["name"] = updateData.Name
 	}
-	if updateData.ICustomer != "" {
-		user.ICustomer = updateData.ICustomer
+	if updateData.Email != "" {
+		updateFields["email"] = updateData.Email
+	}
+	if updateData.Role != nil && *updateData.Role != "" {
+		updateFields["role"] = *updateData.Role
+	}
+	if updateData.ICustomer != nil && *updateData.ICustomer != "" {
+		updateFields["i_customer"] = *updateData.ICustomer
+	}
+	if updateData.IsActive != nil {
+		updateFields["is_active"] = *updateData.IsActive
 	}
 
-	if err := h.userRepo.UpdateUser(ctx, user); err != nil {
+	// Include the updated timestamp
+	updateFields["updated_at"] = time.Now()
+
+	// Call the repository's UpdateUser method
+	if err := h.userRepo.UpdateUser(ctx, userIdHex, updateFields); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to update user."})
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
+	// Return the updated user object
+	c.JSON(http.StatusOK, gin.H{"message": "User updated successfully."})
 }
 
 func (h *UserHandler) ChangePassword(c *gin.Context) {
@@ -243,9 +265,13 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
+	// Create a map with the updated fields
+	updateData := map[string]interface{}{
+		"password": string(hashedPassword),
+	}
+
 	// Update password in the database
-	user.Password = string(hashedPassword)
-	if err := h.userRepo.UpdateUserPassword(ctx, user); err != nil {
+	if err := h.userRepo.UpdateUser(ctx, user.ID, updateData); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to update password."})
 		return
 	}
@@ -277,9 +303,13 @@ func (h *UserHandler) AdminChangePassword(c *gin.Context) {
 		return
 	}
 
+	// Create a map with the updated fields
+	updateData := map[string]interface{}{
+		"password": string(hashedPassword),
+	}
+
 	// Update password in the database
-	user.Password = string(hashedPassword)
-	if err := h.userRepo.UpdateUserPassword(ctx, user); err != nil {
+	if err := h.userRepo.UpdateUser(ctx, user.ID, updateData); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to update password."})
 		return
 	}

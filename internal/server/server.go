@@ -2,26 +2,26 @@ package server
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 
 	"github.com/Rafin000/call-recording-service-v2/internal/common"
-	"github.com/Rafin000/call-recording-service-v2/internal/infra/postgres"
 	"github.com/Rafin000/call-recording-service-v2/internal/server/middlewares"
 	"github.com/Rafin000/call-recording-service-v2/internal/server/routes"
 	"github.com/ashtishad/xpay/docs"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Server struct {
 	Router     *gin.Engine
 	httpServer *http.Server
-	DB         *sql.DB
+	DB         *mongo.Database
 	Config     *common.AppConfig
 }
 
@@ -34,7 +34,13 @@ func NewServer(ctx context.Context) (*Server, error) {
 
 	setupSlogger(cfg.App)
 
-	db, err := setupPostgres(ctx, cfg.DB)
+	// db, err := setupPostgres(ctx, cfg.DB)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// Setup MongoDB connection
+	mongoDB, err := setupMongoDB(ctx, cfg.MongoDB)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +49,7 @@ func NewServer(ctx context.Context) (*Server, error) {
 
 	s := &Server{
 		Router: router,
-		DB:     db,
+		DB:     mongoDB,
 		Config: cfg,
 		httpServer: &http.Server{
 			Addr:    cfg.App.ServerAddress,
@@ -119,25 +125,55 @@ func setupSlogger(appSettings common.AppSettings) {
 
 // setupPostgres establishes a connection to the PostgreSQL database and runs migrations.
 // It returns a database connection pool (*sql.DB) on success.
-func setupPostgres(ctx context.Context, dbConfig common.DBConfig) (*sql.DB, error) {
-	db, err := postgres.NewConnection(ctx, dbConfig)
+// func setupPostgres(ctx context.Context, dbConfig common.DBConfig) (*sql.DB, error) {
+// 	db, err := postgres.NewConnection(ctx, dbConfig)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to connect to database: %w", err)
+// 	}
+
+// 	// if err := postgres.RunMigrations(ctx, db); err != nil {
+// 	// 	slog.Warn("failed to run migrations", "err", err)
+// 	// 	return nil, fmt.Errorf("failed to run migrations: %w", err)
+// 	// }
+
+// 	return db, nil
+// }
+
+// setupMongoDB establishes a connection to MongoDB and returns the *mongo.Database instance.
+func setupMongoDB(ctx context.Context, mongoDBConfig common.MongoDBConfig) (*mongo.Database, error) {
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoDBConfig.URI))
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
+		return nil, fmt.Errorf("failed to connect to MongoDB: %w", err)
 	}
 
-	// if err := postgres.RunMigrations(ctx, db); err != nil {
-	// 	slog.Warn("failed to run migrations", "err", err)
-	// 	return nil, fmt.Errorf("failed to run migrations: %w", err)
-	// }
+	// Ensure the connection is established
+	if err := client.Ping(ctx, nil); err != nil {
+		return nil, fmt.Errorf("failed to ping MongoDB: %w", err)
+	}
 
-	return db, nil
+	return client.Database(mongoDBConfig.Database), nil
 }
 
 // Shutdown gracefully stops the server, closing the database connection and stopping the HTTP server.
 // It uses the provided context for timeout control.
+// func (s *Server) Shutdown(ctx context.Context) error {
+// 	if err := s.DB.Close(); err != nil {
+// 		slog.Error("failed to close database connection", "error", err)
+// 	}
+
+// 	if err := s.httpServer.Shutdown(ctx); err != nil {
+// 		return fmt.Errorf("server shutdown failed: %w", err)
+// 	}
+
+//		return nil
+//	}
+//
+
+// Shutdown gracefully stops the server, closing the database connection and stopping the HTTP server.
+// For MongoDB
 func (s *Server) Shutdown(ctx context.Context) error {
-	if err := s.DB.Close(); err != nil {
-		slog.Error("failed to close database connection", "error", err)
+	if err := s.DB.Client().Disconnect(ctx); err != nil {
+		slog.Error("failed to disconnect from MongoDB", "error", err)
 	}
 
 	if err := s.httpServer.Shutdown(ctx); err != nil {

@@ -6,9 +6,14 @@ import (
 	"github.com/spf13/viper"
 )
 
+// type AppConfig struct {
+// 	App AppSettings `mapstructure:"app"`
+// 	DB  DBConfig    `mapstructure:"db"`
+// }
+
 type AppConfig struct {
-	App AppSettings `mapstructure:"app"`
-	DB  DBConfig    `mapstructure:"db"`
+	App     AppSettings   `mapstructure:"app"`
+	MongoDB MongoDBConfig `mapstructure:"mongodb"`
 }
 
 type AppSettings struct {
@@ -16,11 +21,16 @@ type AppSettings struct {
 	GinMode        string `mapstructure:"gin_mode"`
 	ServerAddress  string `mapstructure:"server_address"`
 	SECRET_KEY     string `mapstructure:"secret_key"`
-	S3_BUCKET_NAME string `mapstructure:"secret_key"`
+	S3_BUCKET_NAME string `mapstructure:"s3_bucket_name"`
 }
 
-type DBConfig struct {
-	URL string `mapstructure:"url"`
+// type DBConfig struct {
+// 	URL string `mapstructure:"url"`
+// }
+
+type MongoDBConfig struct {
+	URI      string `mapstructure:"url"`
+	Database string `mapstructure:"database"`
 }
 
 func LoadConfig() (*AppConfig, error) {

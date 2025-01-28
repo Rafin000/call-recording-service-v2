@@ -5,8 +5,10 @@ app:
   secret_key: "my_precious"
   s3_bucket_name: "recording"
 
+mongodb:
+  url: "mongodb://localhost:27017"
+  database: "call_recording_service"
 
-db:
-  url: "postgres://postgres:postgres@localhost/call_recording?sslmode=disable&timezone=UTC"
+# db:
+#   url: "postgres://postgres:postgres@localhost/call_recording?sslmode=disable&timezone=UTC"
 
-  
