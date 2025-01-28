@@ -78,7 +78,7 @@ func (s *Server) setupMiddlewares() {
 
 // setSwaggerInfo configures Swagger documentation settings for the API.
 func setSwaggerInfo(addr string) {
-	docs.SwaggerInfo.Title = "e-wallet Digital Wallet API"
+	docs.SwaggerInfo.Title = "Call Recording Service API"
 	docs.SwaggerInfo.Version = "1.0"
 	docs.SwaggerInfo.Schemes = []string{"http", "https"}
 	docs.SwaggerInfo.BasePath = "/api/v1"

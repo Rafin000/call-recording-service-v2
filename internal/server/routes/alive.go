@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"github.com/Rafin000/call-recording-service-v2/internal/server/handlers"
 	"github.com/gin-gonic/gin"
 )
 
