@@ -10,7 +10,6 @@ import (
 	"github.com/Rafin000/call-recording-service-v2/internal/common"
 	"github.com/Rafin000/call-recording-service-v2/internal/server/middlewares"
 	"github.com/Rafin000/call-recording-service-v2/internal/server/routes"
-	"github.com/ashtishad/xpay/docs"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -59,7 +58,6 @@ func NewServer(ctx context.Context) (*Server, error) {
 
 	s.setupRoutes()
 	s.setupMiddlewares()
-	setSwaggerInfo(s.httpServer.Addr)
 
 	return s, nil
 }
@@ -80,17 +78,6 @@ func (s *Server) setupRoutes() {
 // setupMiddlewares adds all necessary middlewares to the Gin router.
 func (s *Server) setupMiddlewares() {
 	s.Router.Use(middlewares.InitMiddlewares()...)
-}
-
-// setSwaggerInfo configures Swagger documentation settings for the API.
-func setSwaggerInfo(addr string) {
-	docs.SwaggerInfo.Title = "Call Recording Service API"
-	docs.SwaggerInfo.Version = "1.0"
-	docs.SwaggerInfo.Schemes = []string{"http", "https"}
-	docs.SwaggerInfo.BasePath = "/api/v1"
-	docs.SwaggerInfo.Host = addr
-
-	slog.Info(fmt.Sprintf("Swagger Specs available at http://%s/swagger/index.html", docs.SwaggerInfo.Host))
 }
 
 // setupRouter initializes and configures the Gin router.

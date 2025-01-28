@@ -3,7 +3,6 @@ module github.com/Rafin000/call-recording-service-v2
 go 1.23.3
 
 require (
-	github.com/ashtishad/xpay v0.0.0-20241021071924-cfbe40589ffe
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/cors v1.7.3
 	github.com/gin-gonic/gin v1.10.0
