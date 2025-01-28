@@ -1,0 +1,11 @@
+app:
+  env: dev 
+  gin_mode: release 
+  server_address: "0.0.0.0:8001"
+  secret_key: "my_precious"
+  s3_bucket_name: "recording"
+
+
+db:
+  url: "postgres://ash:samplepass@127.0.0.1:5432/xpay?sslmode=disable&timezone=UTC"
+
