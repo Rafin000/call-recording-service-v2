@@ -125,10 +125,10 @@ func setupPostgres(ctx context.Context, dbConfig common.DBConfig) (*sql.DB, erro
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	if err := postgres.RunMigrations(ctx, db); err != nil {
-		slog.Warn("failed to run migrations", "err", err)
-		return nil, fmt.Errorf("failed to run migrations: %w", err)
-	}
+	// if err := postgres.RunMigrations(ctx, db); err != nil {
+	// 	slog.Warn("failed to run migrations", "err", err)
+	// 	return nil, fmt.Errorf("failed to run migrations: %w", err)
+	// }
 
 	return db, nil
 }

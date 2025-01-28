@@ -7,5 +7,6 @@ app:
 
 
 db:
-  url: "postgres://postgres:postgres@localhost/call-recording?sslmode=disable&timezone=UTC"
+  url: "postgres://postgres:postgres@localhost/call_recording?sslmode=disable&timezone=UTC"
 
+  
