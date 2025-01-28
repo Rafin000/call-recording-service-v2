@@ -1,6 +1,6 @@
 app:
   env: dev 
-  gin_mode: release 
+  gin_mode: debug 
   server_address: "0.0.0.0:8001"
   secret_key: "my_precious"
   s3_bucket_name: "recording"

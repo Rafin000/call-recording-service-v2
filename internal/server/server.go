@@ -41,7 +41,7 @@ func NewServer(ctx context.Context) (*Server, error) {
 	// }
 
 	// Setup Redis connection
-	redisClient, err := setupRedis(ctx, cfg.Redis)
+	redisClient, err := setupRedis(cfg.Redis)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func setupRedis(ctx context.Context, redisConfig common.RedisConfig) (*redis.Client, error) {
+func setupRedis(redisConfig common.RedisConfig) (*redis.Client, error) {
 	options := &redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", redisConfig.Host, redisConfig.Port),
 		Password: redisConfig.Password,
