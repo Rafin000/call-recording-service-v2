@@ -58,6 +58,11 @@ func NewServer(ctx context.Context) (*Server, error) {
 	return s, nil
 }
 
+// Start begins listening for HTTP requests on the configured address.
+func (s *Server) Start() error {
+	return s.httpServer.ListenAndServe()
+}
+
 // setupRoutes initializes all API routes for the server.
 func (s *Server) setupRoutes() {
 	s.Router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -126,4 +131,18 @@ func setupPostgres(ctx context.Context, dbConfig common.DBConfig) (*sql.DB, erro
 	}
 
 	return db, nil
+}
+
+// Shutdown gracefully stops the server, closing the database connection and stopping the HTTP server.
+// It uses the provided context for timeout control.
+func (s *Server) Shutdown(ctx context.Context) error {
+	if err := s.DB.Close(); err != nil {
+		slog.Error("failed to close database connection", "error", err)
+	}
+
+	if err := s.httpServer.Shutdown(ctx); err != nil {
+		return fmt.Errorf("server shutdown failed: %w", err)
+	}
+
+	return nil
 }
