@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"os"
 
-	"bcr.brilliant.com.bd/brilliant-cloud-platform/call-recording-service-v2/common"
-	"bcr.brilliant.com.bd/brilliant-cloud-platform/call-recording-service-v2/infra/postgres"
+	"github.com/Rafin000/call-recording-service-v2/common"
+	"github.com/Rafin000/call-recording-service-v2/infra/postgres"
 	"github.com/gin-gonic/gin"
 )
 

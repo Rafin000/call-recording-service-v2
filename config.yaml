@@ -7,5 +7,5 @@ app:
 
 
 db:
-  url: "postgres://ash:samplepass@127.0.0.1:5432/xpay?sslmode=disable&timezone=UTC"
+  url: "postgres://postgres:postgres@localhost/call-recording?sslmode=disable&timezone=UTC"
 

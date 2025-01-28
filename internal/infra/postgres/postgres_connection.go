@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"bcr.brilliant.com.bd/brilliant-cloud-platform/call-recording-service-v2/common"
+	"github.com/Rafin000/call-recording-service-v2/common"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
 )
