@@ -6,15 +6,14 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/Rafin000/call-recording-service-v2/internal/common"
+	"github.com/Rafin000/call-recording-service-v2/internal/cron"
 	"github.com/Rafin000/call-recording-service-v2/internal/infra/portaone"
 	"github.com/Rafin000/call-recording-service-v2/internal/infra/redis"
 	"github.com/Rafin000/call-recording-service-v2/internal/server/middlewares"
 	"github.com/Rafin000/call-recording-service-v2/internal/server/routes"
 	"github.com/gin-gonic/gin"
-	"github.com/go-co-op/gocron"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -28,7 +27,7 @@ type Server struct {
 	Config         *common.AppConfig
 	Redis          *redis.RedisClient
 	PortaOneClient *portaone.PortaOneClient
-	Scheduler      *gocron.Scheduler
+	JobManager     *cron.JobManager
 }
 
 func NewServer(ctx context.Context) (*Server, error) {
@@ -40,16 +39,6 @@ func NewServer(ctx context.Context) (*Server, error) {
 
 	setupSlogger(cfg.App)
 
-	// db, err := setupPostgres(ctx, cfg.DB)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// Setup Redis connection
-	// redisClient, err := setupRedis(cfg.Redis)
-	// if err != nil {
-	// 	return nil, err
-	// }
 	redisClient, err := redis.NewRedisClient(ctx, cfg.Redis)
 	if err != nil {
 		return nil, err
@@ -69,8 +58,9 @@ func NewServer(ctx context.Context) (*Server, error) {
 
 	router := setupRouter(cfg.App)
 
-	// Initialize gocron scheduler
-	scheduler := gocron.NewScheduler(time.UTC)
+	// Initialize JobManager
+	jobManager := cron.NewJobManager()
+	jobManager.RegisterJobs()
 
 	s := &Server{
 		Router:         router,
@@ -78,7 +68,7 @@ func NewServer(ctx context.Context) (*Server, error) {
 		Config:         cfg,
 		Redis:          &redisClient,
 		PortaOneClient: &portaOneClient,
-		Scheduler:      scheduler,
+		JobManager:     jobManager,
 		httpServer: &http.Server{
 			Addr:    cfg.App.ServerAddress,
 			Handler: router,
@@ -87,24 +77,24 @@ func NewServer(ctx context.Context) (*Server, error) {
 
 	s.setupRoutes()
 	s.setupMiddlewares()
-	s.setupCronJobs()
+	// s.setupCronJobs()
 
 	return s, nil
 }
 
 // setupCronJobs defines and starts scheduled tasks.
-func (s *Server) setupCronJobs() {
-	_, err := s.Scheduler.Every(30).Seconds().Do(func() {
-		slog.Info("Running hourly task")
-		// Add your logic here (e.g., deleting old records, refreshing tokens)
-	})
-	if err != nil {
-		slog.Error("failed to schedule job", "error", err)
-	}
+// func (s *Server) setupCronJobs() {
+// 	_, err := s.Scheduler.Every(30).Seconds().Do(func() {
+// 		slog.Info("Running hourly task")
+// 		// Add your logic here (e.g., deleting old records, refreshing tokens)
+// 	})
+// 	if err != nil {
+// 		slog.Error("failed to schedule job", "error", err)
+// 	}
 
-	s.Scheduler.StartAsync() // Start the scheduler asynchronously
-	slog.Info("gocron scheduler started")
-}
+// 	s.Scheduler.StartAsync()
+// 	slog.Info("gocron scheduler started")
+// }
 
 // Start begins listening for HTTP requests on the configured address.
 func (s *Server) Start() error {
@@ -154,22 +144,6 @@ func setupSlogger(appSettings common.AppSettings) {
 
 }
 
-// setupPostgres establishes a connection to the PostgreSQL database and runs migrations.
-// It returns a database connection pool (*sql.DB) on success.
-// func setupPostgres(ctx context.Context, dbConfig common.DBConfig) (*sql.DB, error) {
-// 	db, err := postgres.NewConnection(ctx, dbConfig)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to connect to database: %w", err)
-// 	}
-
-// 	// if err := postgres.RunMigrations(ctx, db); err != nil {
-// 	// 	slog.Warn("failed to run migrations", "err", err)
-// 	// 	return nil, fmt.Errorf("failed to run migrations: %w", err)
-// 	// }
-
-// 	return db, nil
-// }
-
 // setupMongoDB establishes a connection to MongoDB and returns the *mongo.Database instance.
 func setupMongoDB(ctx context.Context, mongoDBConfig common.MongoDBConfig) (*mongo.Database, error) {
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoDBConfig.URI))
@@ -186,21 +160,6 @@ func setupMongoDB(ctx context.Context, mongoDBConfig common.MongoDBConfig) (*mon
 }
 
 // Shutdown gracefully stops the server, closing the database connection and stopping the HTTP server.
-// It uses the provided context for timeout control.
-// func (s *Server) Shutdown(ctx context.Context) error {
-// 	if err := s.DB.Close(); err != nil {
-// 		slog.Error("failed to close database connection", "error", err)
-// 	}
-
-// 	if err := s.httpServer.Shutdown(ctx); err != nil {
-// 		return fmt.Errorf("server shutdown failed: %w", err)
-// 	}
-
-//		return nil
-//	}
-//
-
-// Shutdown gracefully stops the server, closing the database connection and stopping the HTTP server.
 // For MongoDB
 func (s *Server) Shutdown(ctx context.Context) error {
 	if err := s.DB.Client().Disconnect(ctx); err != nil {
@@ -213,21 +172,3 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 	return nil
 }
-
-// func setupRedis(redisConfig common.RedisConfig) (*redis.Client, error) {
-// 	options := &redis.Options{
-// 		Addr:     fmt.Sprintf("%s:%d", redisConfig.Host, redisConfig.Port),
-// 		Password: redisConfig.Password,
-// 		DB:       redisConfig.DB,
-// 	}
-
-// 	client := redis.NewClient(options)
-
-// 	// Test the connection
-// 	_, err := client.Ping().Result()
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
-// 	}
-
-// 	return client, nil
-// }
