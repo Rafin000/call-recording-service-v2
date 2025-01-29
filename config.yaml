@@ -16,8 +16,8 @@ redis:
   db: 0
 
 portaone:
-  username: "shahed.mehbub"
-  password: "Asdf@1234!"
+  username: "******"
+  password: "*******"
 
 # db:
 #   url: "postgres://postgres:postgres@localhost/call_recording?sslmode=disable&timezone=UTC"
