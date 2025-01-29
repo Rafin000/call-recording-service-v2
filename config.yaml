@@ -14,6 +14,11 @@ redis:
   port: 6379
   password: ""
   db: 0
+
+portaone:
+  username: "your-portaone-username"
+  password: "your-portaone-password"
+
 # db:
 #   url: "postgres://postgres:postgres@localhost/call_recording?sslmode=disable&timezone=UTC"
 

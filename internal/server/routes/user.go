@@ -8,11 +8,25 @@ import (
 
 func registerUserRoutes(rg *gin.RouterGroup, userRepo domain.UserRepository) {
 	userHandler := handlers.NewUserHandler(userRepo)
-	rg.POST("/admin/create_user", userHandler.CreateUser)
+
+	// Routes that require Admin authentication
+	adminGroup := rg.Group("/admin")
+	// adminGroup.Use(middlewares.AdminTokenRequired())
+	{
+		adminGroup.POST("/create_user", userHandler.CreateUser)
+		adminGroup.POST("/update_user/:user_id", userHandler.UpdateUser)
+		adminGroup.POST("/get_users", userHandler.GetUsers)
+		adminGroup.POST("/change_password", userHandler.AdminChangePassword)
+	}
+
+	// Routes that require normal user authentication
+	authGroup := rg.Group("/")
+	// authGroup.Use(middlewares.TokenRequired())
+	{
+		authGroup.POST("/change_password", userHandler.ChangePassword)
+	}
+
+	// Routes without authentication (Public)
 	rg.POST("/login", userHandler.Login)
 	rg.POST("/refresh_token", userHandler.RefreshToken)
-	rg.POST("/admin/update_user/<string:user_id>", userHandler.UpdateUser)
-	rg.POST("/admin/get_users", userHandler.GetUsers)
-	rg.POST("/change_password", userHandler.ChangePassword)
-	rg.POST("/admin/change_password", userHandler.AdminChangePassword)
 }

@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/Rafin000/call-recording-service-v2/internal/common"
+	"github.com/Rafin000/call-recording-service-v2/internal/infra/redis"
 	"github.com/Rafin000/call-recording-service-v2/internal/server/middlewares"
 	"github.com/Rafin000/call-recording-service-v2/internal/server/routes"
 	"github.com/gin-gonic/gin"
@@ -41,7 +42,11 @@ func NewServer(ctx context.Context) (*Server, error) {
 	// }
 
 	// Setup Redis connection
-	redisClient, err := setupRedis(cfg.Redis)
+	// redisClient, err := setupRedis(cfg.Redis)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	redisClient, err := redis.NewRedis(cfg.Redis)
 	if err != nil {
 		return nil, err
 	}

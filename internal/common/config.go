@@ -12,9 +12,10 @@ import (
 // }
 
 type AppConfig struct {
-	App     AppSettings   `mapstructure:"app"`
-	MongoDB MongoDBConfig `mapstructure:"mongodb"`
-	Redis   RedisConfig   `mapstructure:"redis"`
+	App      AppSettings    `mapstructure:"app"`
+	MongoDB  MongoDBConfig  `mapstructure:"mongodb"`
+	Redis    RedisConfig    `mapstructure:"redis"`
+	PortaOne PortaOneConfig `mapstructure:"portaone"`
 }
 
 type AppSettings struct {
@@ -23,6 +24,11 @@ type AppSettings struct {
 	ServerAddress  string `mapstructure:"server_address"`
 	SECRET_KEY     string `mapstructure:"secret_key"`
 	S3_BUCKET_NAME string `mapstructure:"s3_bucket_name"`
+}
+
+type PortaOneConfig struct {
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
 }
 
 // type DBConfig struct {

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -93,6 +94,8 @@ func (h *UserHandler) Login(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), common.Timeouts.User.Write)
 	defer cancel()
 
+	slog.Info("Received login request", "email", loginData.Email)
+
 	// Check if user exists
 	user, _ := h.userRepo.GetUserByEmail(ctx, loginData.Email)
 	if user == nil {
@@ -100,9 +103,13 @@ func (h *UserHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// Check if password is correct
+	// Log stored password hash
+	slog.Info("Stored Password Hash", "hash", user.Password)
+
+	// Check if password is correct using bcrypt
 	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(loginData.Password))
 	if err != nil {
+		slog.Error("Password mismatch", "error", err)
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Incorrect password."})
 		return
 	}
@@ -122,7 +129,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 
 	refreshToken, err := utils.GenerateRefreshToken(payloads)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to generate access tokens."})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to generate refresh tokens."})
 		return
 	}
 

@@ -159,7 +159,9 @@ type userRepository struct {
 }
 
 func NewUserRepository(db *mongo.Database) UserRepository {
-	return &userRepository{collection: db.Collection("users")}
+	return &userRepository{
+		collection: db.Collection("users"),
+	}
 }
 
 func (r *userRepository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
