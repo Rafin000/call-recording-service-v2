@@ -4,8 +4,19 @@ import (
 	"errors"
 	"time"
 
+	"github.com/Rafin000/call-recording-service-v2/internal/common"
 	"github.com/golang-jwt/jwt"
 )
+
+var config *common.AppConfig
+
+func init() {
+	var err error
+	config, err = common.LoadConfig()
+	if err != nil {
+		panic("failed to load config: " + err.Error())
+	}
+}
 
 type JWTClaims struct {
 	Email     string  `json:"email"`
@@ -18,7 +29,7 @@ type JWTClaims struct {
 func DecodeAuthToken(token string) (*JWTClaims, error) {
 	claims := &JWTClaims{}
 	tokenParsed, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(SecretKey), nil
+		return []byte(config.App.SECRET_KEY), nil
 	})
 	if err != nil {
 		if errors.Is(err, jwt.ErrSignatureInvalid) {
@@ -47,7 +58,7 @@ func GenerateAccessToken(payloads map[string]interface{}) (string, error) {
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(SecretKey))
+	return token.SignedString([]byte(config.App.SECRET_KEY))
 }
 
 func GenerateRefreshToken(payloads map[string]interface{}) (string, error) {
@@ -62,5 +73,5 @@ func GenerateRefreshToken(payloads map[string]interface{}) (string, error) {
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(SecretKey))
+	return token.SignedString([]byte(config.App.SECRET_KEY))
 }
