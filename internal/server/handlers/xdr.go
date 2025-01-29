@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/Rafin000/call-recording-service-v2/internal/common"
-	"github.com/Rafin000/call-recording-service-v2/internal/utils"
 	"github.com/Rafin000/call-recording-service-v2/internal/domain"
 	"github.com/Rafin000/call-recording-service-v2/internal/infra/portaone"
 	"github.com/gin-gonic/gin"
@@ -185,145 +184,71 @@ func (h *XDRHandler) GetCallRecording(c *gin.Context) {
 }
 
 // getXDRDumps handles fetching XDR dumps within a given date range
-// func (h *XDRHandler) GetXDRDumps(c *gin.Context) {
-// 	var req domain.XDRDumpsRequest
-// 	// Bind query parameters to the struct
-// 	if err := c.ShouldBindQuery(&req); err != nil {
-// 		// Handle missing or invalid parameters
-// 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Missing required parameters"})
-// 		return
-// 	}
-
-// 	// Parse and validate date range (from_date, to_date)
-// 	fromDate, err := time.Parse("2006-01-02 15:04:05", req.FromDate)
-// 	if err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid from_date format"})
-// 		return
-// 	}
-
-// 	toDate, err := time.Parse("2006-01-02 15:04:05", req.ToDate)
-// 	if err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid to_date format"})
-// 		return
-// 	}
-
-// 	// Ensure fromDate is not after toDate
-// 	if fromDate.After(toDate) {
-// 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "from_date cannot be after to_date"})
-// 		return
-// 	}
-
-// 	// Convert to Unix timestamps
-// 	fromDateUnix := fromDate.Unix()
-// 	toDateUnix := toDate.Unix()
-
-// 	// Get customer ID from somewhere (e.g., request context or headers)
-// 	iCustomer, exists := c.Get("i_customer")
-// 	if !exists {
-// 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "i_customer is required"})
-// 		return
-// 	}
-
-// 	// Type assertion to convert iCustomer to int
-// 	customerID, ok := iCustomer.(int)
-// 	if !ok {
-// 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid i_customer type"})
-// 		return
-// 	}
-
-// 	// Define pagination parameters (default to page 1 and pageSize 10)
-// 	page := 1
-// 	pageSize := 10
-
-// 	ctx, cancel := context.WithTimeout(c.Request.Context(), common.Timeouts.User.Write)
-// 	defer cancel()
-
-// 	// Fetch the XDR data using the repository method
-// 	xdrData, err := h.xdrRepo.GetXDRList(ctx, customerID, fromDateUnix, toDateUnix, page, pageSize)
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Error fetching XDR data"})
-// 		return
-// 	}
-
-// 	// Return the fetched XDR data
-// 	c.JSON(http.StatusOK, gin.H{
-// 		"status":   "success",
-// 		"xdr_data": xdrData,
-// 	})
-// }
-
 func (h *XDRHandler) GetXDRDumps(c *gin.Context) {
-	currentTime := time.Now().UTC().Add(6 * time.Hour)
-	fmt.Printf("[%s] Received GET request for XDRDumps.\n", currentTime.Format("2006-01-02 15:04:05"))
+	var req domain.XDRDumpsRequest
+	// Bind query parameters to the struct
+	if err := c.ShouldBindQuery(&req); err != nil {
+		// Handle missing or invalid parameters
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Missing required parameters"})
+		return
+	}
 
-	// Retrieve i_customer from the context
+	// Parse and validate date range (from_date, to_date)
+	fromDate, err := time.Parse("2006-01-02 15:04:05", req.FromDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid from_date format"})
+		return
+	}
+
+	toDate, err := time.Parse("2006-01-02 15:04:05", req.ToDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid to_date format"})
+		return
+	}
+
+	// Ensure fromDate is not after toDate
+	if fromDate.After(toDate) {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "from_date cannot be after to_date"})
+		return
+	}
+
+	// Convert to Unix timestamps
+	fromDateUnix := fromDate.Unix()
+	toDateUnix := toDate.Unix()
+
+	// Get customer ID from somewhere (e.g., request context or headers)
 	iCustomer, exists := c.Get("i_customer")
 	if !exists {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "i_customer is required"})
 		return
 	}
 
-	// Log i_customer for debugging
-	fmt.Printf("[%s] i_customer: %v\n", currentTime.Format("2006-01-02 15:04:05"), iCustomer)
-
-	// Retrieve query parameters with default values
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-	fromDateStr := c.DefaultQuery("from_date", "")
-	toDateStr := c.DefaultQuery("to_date", "")
-
-	// Log parameters for debugging
-	fmt.Printf("[%s] Parameters - Page: %d, Page Size: %d, From Date: %s, To Date: %s\n", currentTime.Format("2006-01-02 15:04:05"), page, pageSize, fromDateStr, toDateStr)
-
-	// Define datetime formats
-	datetimeFormats := []string{
-		"2006-01-02 15:04:05", // YYYY-MM-DD HH:MM:SS
-		"2006-01-02 15:04",    // YYYY-MM-DD HH:MM
-		"2006-01-02",          // YYYY-MM-DD
-	}
-
-	// Default dates (30 days ago and 1 day ahead)
-	defaultFromDate := time.Now().UTC().Add(6 * time.Hour).Add(-30 * 24 * time.Hour)
-	defaultToDate := time.Now().UTC().Add(6 * time.Hour).Add(1 * 24 * time.Hour)
-
-	var fromDate, toDate time.Time
-	var err error
-
-	// Parse from_date and to_date
-	fromDate, err = ParseDatetime(fromDateStr, datetimeFormats, true, defaultFromDate)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": fmt.Sprintf("Invalid from_date format: %s", err.Error())})
+	// Type assertion to convert iCustomer to int
+	customerID, ok := iCustomer.(int)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid i_customer type"})
 		return
 	}
 
-	toDate, err = ParseDatetime(toDateStr, datetimeFormats, false, defaultToDate)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": fmt.Sprintf("Invalid to_date format: %s", err.Error())})
-		return
-	}
+	// Define pagination parameters (default to page 1 and pageSize 10)
+	page := 1
+	pageSize := 10
 
-	// Validate date range
-	if fromDate.After(toDate) {
-		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "from_date cannot be after to_date"})
-		return
-	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), common.Timeouts.User.Write)
+	defer cancel()
 
-	// Convert dates to Unix timestamps
-	fromDateUnix := fromDate.Unix()
-	toDateUnix := toDate.Unix()
-
-	// Log date range for debugging
-	fmt.Printf("[%s] From Date: %d, To Date: %d\n", currentTime.Format("2006-01-02 15:04:05"), fromDateUnix, toDateUnix)
-
-	// Call the function to get XDR list (replace this with actual repository call)
-	xdrList, err := h.xdrRepo.GetXDRList(iCustomer, fromDateUnix, toDateUnix, page, pageSize)
+	// Fetch the XDR data using the repository method
+	xdrData, err := h.xdrRepo.GetXDRList(ctx, customerID, fromDateUnix, toDateUnix, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Error fetching XDR data"})
 		return
 	}
 
-	// Return the XDR data
-	c.JSON(http.StatusOK, gin.H{"status": "success", "data": xdrList})
+	// Return the fetched XDR data
+	c.JSON(http.StatusOK, gin.H{
+		"status":   "success",
+		"xdr_data": xdrData,
+	})
 }
 
 // getXDRByI_XDR handles fetching XDR data for a specific i_xdr

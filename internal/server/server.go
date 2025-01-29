@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/Rafin000/call-recording-service-v2/internal/common"
 	"github.com/Rafin000/call-recording-service-v2/internal/infra/portaone"
@@ -13,6 +14,7 @@ import (
 	"github.com/Rafin000/call-recording-service-v2/internal/server/middlewares"
 	"github.com/Rafin000/call-recording-service-v2/internal/server/routes"
 	"github.com/gin-gonic/gin"
+	"github.com/go-co-op/gocron"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -26,6 +28,7 @@ type Server struct {
 	Config         *common.AppConfig
 	Redis          *redis.RedisClient
 	PortaOneClient *portaone.PortaOneClient
+	Scheduler      *gocron.Scheduler
 }
 
 func NewServer(ctx context.Context) (*Server, error) {
@@ -66,12 +69,16 @@ func NewServer(ctx context.Context) (*Server, error) {
 
 	router := setupRouter(cfg.App)
 
+	// Initialize gocron scheduler
+	scheduler := gocron.NewScheduler(time.UTC)
+
 	s := &Server{
 		Router:         router,
 		DB:             mongoDB,
 		Config:         cfg,
 		Redis:          &redisClient,
 		PortaOneClient: &portaOneClient,
+		Scheduler:      scheduler,
 		httpServer: &http.Server{
 			Addr:    cfg.App.ServerAddress,
 			Handler: router,
@@ -80,8 +87,23 @@ func NewServer(ctx context.Context) (*Server, error) {
 
 	s.setupRoutes()
 	s.setupMiddlewares()
+	s.setupCronJobs()
 
 	return s, nil
+}
+
+// setupCronJobs defines and starts scheduled tasks.
+func (s *Server) setupCronJobs() {
+	_, err := s.Scheduler.Every(30).Seconds().Do(func() {
+		slog.Info("Running hourly task")
+		// Add your logic here (e.g., deleting old records, refreshing tokens)
+	})
+	if err != nil {
+		slog.Error("failed to schedule job", "error", err)
+	}
+
+	s.Scheduler.StartAsync() // Start the scheduler asynchronously
+	slog.Info("gocron scheduler started")
 }
 
 // Start begins listening for HTTP requests on the configured address.
