@@ -3,6 +3,7 @@ package routes
 import (
 	"github.com/Rafin000/call-recording-service-v2/internal/common"
 	"github.com/Rafin000/call-recording-service-v2/internal/domain"
+	"github.com/Rafin000/call-recording-service-v2/internal/infra/portaone"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -10,6 +11,7 @@ import (
 func InitRoutes(rg *gin.RouterGroup, mongoDB *mongo.Database, config *common.AppConfig) {
 	userRepo := domain.NewUserRepository(mongoDB)
 	xdrRepo := domain.NewXDRRepository(mongoDB)
+	portaOneClient := portaone.NewPortaOneClient()
 
 	registerAliveRoute(rg)
 
@@ -17,5 +19,5 @@ func InitRoutes(rg *gin.RouterGroup, mongoDB *mongo.Database, config *common.App
 	registerUserRoutes(userGroup, userRepo)
 
 	xdrGroup := rg.Group("/xdrs")
-	registerXDRRoutes(xdrGroup, xdrRepo)
+	registerXDRRoutes(xdrGroup, xdrRepo, portaOneClient)
 }

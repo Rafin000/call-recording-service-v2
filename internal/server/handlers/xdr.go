@@ -14,21 +14,27 @@ import (
 
 	"github.com/Rafin000/call-recording-service-v2/internal/common"
 	"github.com/Rafin000/call-recording-service-v2/internal/domain"
+	"github.com/Rafin000/call-recording-service-v2/internal/infra/portaone"
 	"github.com/gin-gonic/gin"
 )
 
 type XDRHandler struct {
-	xdrRepo domain.XDRRepository
+	xdrRepo        domain.XDRRepository
+	portaoneClient portaone.PortaOneClient
 }
 
-func NewXDRHandler(xdrRepo domain.XDRRepository) *XDRHandler {
+func NewXDRHandler(xdrRepo domain.XDRRepository, portaoneClient portaone.PortaOneClient) *XDRHandler {
 	return &XDRHandler{
-		xdrRepo: xdrRepo,
+		xdrRepo:        xdrRepo,
+		portaoneClient: portaoneClient,
 	}
 }
 
 func (h *XDRHandler) GetXDR(c *gin.Context) {
-	sessionID, err := signInToPortaOne()
+	ctx, cancel := context.WithTimeout(c.Request.Context(), common.Timeouts.User.Read)
+	defer cancel()
+
+	sessionID, err := h.portaoneClient.GetSessionID(ctx)
 	if err != nil || sessionID == "" {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to sign in to PortaOne"})
 		return
@@ -80,7 +86,10 @@ func (h *XDRHandler) GetXDR(c *gin.Context) {
 }
 
 func (h *XDRHandler) GetCallRecording(c *gin.Context) {
-	sessionID, err := signInToPortaOne()
+	ctx, cancel := context.WithTimeout(c.Request.Context(), common.Timeouts.User.Write)
+	defer cancel()
+
+	sessionID, err := h.portaoneClient.GetSessionID(ctx)
 	if err != nil || sessionID == "" {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to sign in to PortaOne"})
 		return
