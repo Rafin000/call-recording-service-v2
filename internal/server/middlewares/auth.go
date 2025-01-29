@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -63,10 +64,20 @@ func TokenRequired() gin.HandlerFunc {
 			return
 		}
 
+		// Ensure "Bearer" is in the Authorization header
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header must start with Bearer"})
+			c.Abort()
+			return
+		}
+
 		// Extract the token
 		token := strings.TrimSpace(strings.Replace(authHeader, "Bearer", "", 1))
+
+		// Decode and validate the token
 		payload, err := utils.DecodeAuthToken(token)
 		if err != nil {
+			// Handle token errors
 			if err.Error() == "expired" {
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "Expired Token"})
 			} else {
@@ -83,9 +94,13 @@ func TokenRequired() gin.HandlerFunc {
 
 		// Check if ICustomer is non-nil and set it
 		if payload.ICustomer != nil {
-			c.Set("i_customer", *payload.ICustomer)
-		}
+			slog.Debug("i_customer from payload", "i_customer", *payload.ICustomer)
+			cleanedICustomer := strings.Trim(*payload.ICustomer, `\"`)
+			slog.Debug("Cleaned i_customer", "i_customer", cleanedICustomer)
 
+			c.Set("i_customer", cleanedICustomer)
+		}
+		// Proceed with the next middleware/handler
 		c.Next()
 	}
 }

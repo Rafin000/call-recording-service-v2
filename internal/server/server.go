@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/Rafin000/call-recording-service-v2/internal/common"
+	"github.com/Rafin000/call-recording-service-v2/internal/infra/portaone"
 	"github.com/Rafin000/call-recording-service-v2/internal/infra/redis"
 	"github.com/Rafin000/call-recording-service-v2/internal/server/middlewares"
 	"github.com/Rafin000/call-recording-service-v2/internal/server/routes"
@@ -19,11 +20,12 @@ import (
 )
 
 type Server struct {
-	Router     *gin.Engine
-	httpServer *http.Server
-	DB         *mongo.Database
-	Config     *common.AppConfig
-	Redis      *redis.RedisClient
+	Router         *gin.Engine
+	httpServer     *http.Server
+	DB             *mongo.Database
+	Config         *common.AppConfig
+	Redis          *redis.RedisClient
+	PortaOneClient *portaone.PortaOneClient
 }
 
 func NewServer(ctx context.Context) (*Server, error) {
@@ -50,6 +52,12 @@ func NewServer(ctx context.Context) (*Server, error) {
 		return nil, err
 	}
 
+	// Setup PortaOne client
+	portaOneClient, err := portaone.NewPortaOneClient(cfg.PortaOne, redisClient)
+	if err != nil {
+		return nil, err
+	}
+
 	// Setup MongoDB connection
 	mongoDB, err := setupMongoDB(ctx, cfg.MongoDB)
 	if err != nil {
@@ -59,10 +67,11 @@ func NewServer(ctx context.Context) (*Server, error) {
 	router := setupRouter(cfg.App)
 
 	s := &Server{
-		Router: router,
-		DB:     mongoDB,
-		Config: cfg,
-		Redis:  &redisClient,
+		Router:         router,
+		DB:             mongoDB,
+		Config:         cfg,
+		Redis:          &redisClient,
+		PortaOneClient: &portaOneClient,
 		httpServer: &http.Server{
 			Addr:    cfg.App.ServerAddress,
 			Handler: router,
@@ -85,7 +94,7 @@ func (s *Server) setupRoutes() {
 	s.Router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	apiGroup := s.Router.Group("/api/v1")
-	routes.InitRoutes(apiGroup, s.DB, s.Config)
+	routes.InitRoutes(apiGroup, s.DB, s.Config, *s.PortaOneClient)
 }
 
 // setupMiddlewares adds all necessary middlewares to the Gin router.

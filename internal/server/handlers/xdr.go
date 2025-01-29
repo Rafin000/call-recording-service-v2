@@ -6,13 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
-	"os"
-	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Rafin000/call-recording-service-v2/internal/common"
+	"github.com/Rafin000/call-recording-service-v2/internal/utils"
 	"github.com/Rafin000/call-recording-service-v2/internal/domain"
 	"github.com/Rafin000/call-recording-service-v2/internal/infra/portaone"
 	"github.com/gin-gonic/gin"
@@ -31,57 +32,96 @@ func NewXDRHandler(xdrRepo domain.XDRRepository, portaoneClient portaone.PortaOn
 }
 
 func (h *XDRHandler) GetXDR(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(c.Request.Context(), common.Timeouts.User.Read)
-	defer cancel()
-
-	sessionID, err := h.portaoneClient.GetSessionID(ctx)
-	if err != nil || sessionID == "" {
-		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to sign in to PortaOne"})
-		return
-	}
-
-	var req domain.XDRRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid JSON format"})
-		return
-	}
-
-	// Check if i_customer is provided in the request
-	if req.ICustomer == "" {
+	// Get i_customer from the Gin context
+	iCustomer, exists := c.Get("i_customer")
+	if !exists {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "i_customer is required"})
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 1*time.Minute)
+	defer cancel()
+
+	slog.Debug("Starting GetXDR request")
+
+	// First POST request - Login to PortaOne
+	sessionID, err := h.portaoneClient.GetSessionID(ctx)
+	if err != nil {
+		slog.Debug("Failed to get session ID from PortaOne", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to sign in to PortaOne"})
+		return
+	}
+	slog.Debug("Session ID retrieved", "session_id", sessionID)
+
 	xdrURL := "https://pbwebsrv.intercloud.com.bd/rest/Customer/get_customer_xdrs"
+
 	today := time.Now().UTC().Add(6 * time.Hour)
 	tomorrow := today.Add(24 * time.Hour)
 
-	xdrData := map[string]interface{}{
-		"auth_info": map[string]string{"session_id": sessionID},
-		"params": map[string]interface{}{
-			"billing_model":  1,
-			"call_recording": 1,
-			"from_date":      today.Format("2006-01-02 15:04:05"),
-			"i_customer":     req.ICustomer,
-			"to_date":        tomorrow.Format("2006-01-02 15:04:05"),
-		},
+	xdrHeaders := map[string]string{
+		"Content-Type": "application/x-www-form-urlencoded",
 	}
 
-	xdrDataBytes, _ := json.Marshal(xdrData)
+	// Format the data as URL-encoded form data
+	xdrData := map[string]interface{}{
+		"auth_info": json.RawMessage(fmt.Sprintf(`{"session_id": "%s"}`, sessionID)),
+		"params": json.RawMessage(fmt.Sprintf(`{
+			"billing_model": 1,
+			"call_recording": 1,
+			"from_date": "%s",
+			"i_customer": "%s",
+			"to_date": "%s"
+		}`, today.Format("2006-01-02 15:04:05"), iCustomer, tomorrow.Format("2006-01-02 15:04:05"))),
+	}
+	slog.Debug("XDR data formatted", "xdr_data", xdrData)
 
-	resp, err := http.Post(xdrURL, "application/x-www-form-urlencoded", bytes.NewBuffer(xdrDataBytes))
+	// Prepare form data
+	formData := "auth_info=" + string(xdrData["auth_info"].(json.RawMessage)) +
+		"&params=" + string(xdrData["params"].(json.RawMessage))
+
+	req, err := http.NewRequest("POST", xdrURL, strings.NewReader(formData))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to create HTTP request"})
+		return
+	}
+
+	// Add headers
+	for key, value := range xdrHeaders {
+		req.Header.Set(key, value)
+	}
+
+	// Send the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": fmt.Sprintf("Request failed: %v", err)})
 		return
 	}
 	defer resp.Body.Close()
 
+	// Check for successful response
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": fmt.Sprintf("Failed to get XDRs: %s", resp.Status)})
+		return
+	}
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to read response body"})
+		return
+	}
+	slog.Debug("Response body read", "body", string(body))
+
+	// Parse the JSON response
 	var xdrResponse map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&xdrResponse); err != nil {
+	err = json.Unmarshal(body, &xdrResponse)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to parse XDR response"})
 		return
 	}
 
+	// Send the XDR response
 	c.JSON(http.StatusOK, xdrResponse)
 }
 
@@ -89,15 +129,21 @@ func (h *XDRHandler) GetCallRecording(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), common.Timeouts.User.Write)
 	defer cancel()
 
+	// Get session ID from PortaOne client
 	sessionID, err := h.portaoneClient.GetSessionID(ctx)
 	if err != nil || sessionID == "" {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to sign in to PortaOne"})
 		return
 	}
 
+	// Get i_xdr from URL params
 	iXdr := c.Param("i_xdr")
-	recordingURL := "https://pbwebsrv.intercloud.com.bd/rest/CDR/get_call_recording"
+	if iXdr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "i_xdr is required"})
+		return
+	}
 
+	recordingURL := "https://pbwebsrv.intercloud.com.bd/rest/CDR/get_call_recording"
 	recordingData := map[string]interface{}{
 		"auth_info": map[string]string{"session_id": sessionID},
 		"params": map[string]string{
@@ -105,111 +151,179 @@ func (h *XDRHandler) GetCallRecording(c *gin.Context) {
 		},
 	}
 
-	recordingDataBytes, _ := json.Marshal(recordingData)
+	// Prepare the data as JSON
+	recordingDataBytes, err := json.Marshal(recordingData)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to marshal request data"})
+		return
+	}
 
-	resp, err := http.Post(recordingURL, "application/x-www-form-urlencoded", bytes.NewBuffer(recordingDataBytes))
+	// Make the POST request
+	resp, err := http.Post(recordingURL, "application/json", bytes.NewBuffer(recordingDataBytes))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
 		return
 	}
 	defer resp.Body.Close()
 
-	audioData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to read audio data"})
+	// Check for non-200 status codes
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(resp.StatusCode, gin.H{"status": "error", "message": "Failed to get call recording", "response_code": resp.StatusCode})
 		return
 	}
 
-	// Write the recording to a temporary file
-	inputFilePath := fmt.Sprintf("/tmp/%s.wav", iXdr)
-	err = os.WriteFile(inputFilePath, audioData, 0644)
+	// Parse the response JSON
+	var recordingResponse map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&recordingResponse)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to save recording"})
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to parse call recording response"})
 		return
 	}
 
-	// Convert the WAV file to MP3 using ffmpeg
-	outputFilePath := fmt.Sprintf("/tmp/%s.mp3", iXdr)
-	cmd := exec.Command("ffmpeg", "-i", inputFilePath, "-acodec", "mp3", "-ar", "24000", "-ac", "2", "-ab", "128k", outputFilePath)
-	err = cmd.Run()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Audio conversion failed"})
-		return
-	}
-
-	// Read the converted MP3 file
-	mp3Data, err := os.ReadFile(outputFilePath)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to read MP3 data"})
-		return
-	}
-
-	// Clean up temporary files
-	defer os.Remove(inputFilePath)
-	defer os.Remove(outputFilePath)
-
-	// Send the MP3 file as a response
-	c.Header("Content-Type", "audio/mp3")
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s.mp3", iXdr))
-	c.Data(http.StatusOK, "audio/mp3", mp3Data)
+	// Send the response back to the client
+	c.JSON(http.StatusOK, recordingResponse)
 }
 
 // getXDRDumps handles fetching XDR dumps within a given date range
+// func (h *XDRHandler) GetXDRDumps(c *gin.Context) {
+// 	var req domain.XDRDumpsRequest
+// 	// Bind query parameters to the struct
+// 	if err := c.ShouldBindQuery(&req); err != nil {
+// 		// Handle missing or invalid parameters
+// 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Missing required parameters"})
+// 		return
+// 	}
+
+// 	// Parse and validate date range (from_date, to_date)
+// 	fromDate, err := time.Parse("2006-01-02 15:04:05", req.FromDate)
+// 	if err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid from_date format"})
+// 		return
+// 	}
+
+// 	toDate, err := time.Parse("2006-01-02 15:04:05", req.ToDate)
+// 	if err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid to_date format"})
+// 		return
+// 	}
+
+// 	// Ensure fromDate is not after toDate
+// 	if fromDate.After(toDate) {
+// 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "from_date cannot be after to_date"})
+// 		return
+// 	}
+
+// 	// Convert to Unix timestamps
+// 	fromDateUnix := fromDate.Unix()
+// 	toDateUnix := toDate.Unix()
+
+// 	// Get customer ID from somewhere (e.g., request context or headers)
+// 	iCustomer, exists := c.Get("i_customer")
+// 	if !exists {
+// 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "i_customer is required"})
+// 		return
+// 	}
+
+// 	// Type assertion to convert iCustomer to int
+// 	customerID, ok := iCustomer.(int)
+// 	if !ok {
+// 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid i_customer type"})
+// 		return
+// 	}
+
+// 	// Define pagination parameters (default to page 1 and pageSize 10)
+// 	page := 1
+// 	pageSize := 10
+
+// 	ctx, cancel := context.WithTimeout(c.Request.Context(), common.Timeouts.User.Write)
+// 	defer cancel()
+
+// 	// Fetch the XDR data using the repository method
+// 	xdrData, err := h.xdrRepo.GetXDRList(ctx, customerID, fromDateUnix, toDateUnix, page, pageSize)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Error fetching XDR data"})
+// 		return
+// 	}
+
+// 	// Return the fetched XDR data
+// 	c.JSON(http.StatusOK, gin.H{
+// 		"status":   "success",
+// 		"xdr_data": xdrData,
+// 	})
+// }
+
 func (h *XDRHandler) GetXDRDumps(c *gin.Context) {
-	var req domain.XDRDumpsRequest
-	// Bind query parameters to the struct
-	if err := c.ShouldBindQuery(&req); err != nil {
-		// Handle missing or invalid parameters
-		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Missing required parameters"})
+	currentTime := time.Now().UTC().Add(6 * time.Hour)
+	fmt.Printf("[%s] Received GET request for XDRDumps.\n", currentTime.Format("2006-01-02 15:04:05"))
+
+	// Retrieve i_customer from the context
+	iCustomer, exists := c.Get("i_customer")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "i_customer is required"})
 		return
 	}
 
-	// Parse and validate date range (from_date, to_date)
-	fromDate, err := time.Parse("2006-01-02 15:04:05", req.FromDate)
+	// Log i_customer for debugging
+	fmt.Printf("[%s] i_customer: %v\n", currentTime.Format("2006-01-02 15:04:05"), iCustomer)
+
+	// Retrieve query parameters with default values
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+	fromDateStr := c.DefaultQuery("from_date", "")
+	toDateStr := c.DefaultQuery("to_date", "")
+
+	// Log parameters for debugging
+	fmt.Printf("[%s] Parameters - Page: %d, Page Size: %d, From Date: %s, To Date: %s\n", currentTime.Format("2006-01-02 15:04:05"), page, pageSize, fromDateStr, toDateStr)
+
+	// Define datetime formats
+	datetimeFormats := []string{
+		"2006-01-02 15:04:05", // YYYY-MM-DD HH:MM:SS
+		"2006-01-02 15:04",    // YYYY-MM-DD HH:MM
+		"2006-01-02",          // YYYY-MM-DD
+	}
+
+	// Default dates (30 days ago and 1 day ahead)
+	defaultFromDate := time.Now().UTC().Add(6 * time.Hour).Add(-30 * 24 * time.Hour)
+	defaultToDate := time.Now().UTC().Add(6 * time.Hour).Add(1 * 24 * time.Hour)
+
+	var fromDate, toDate time.Time
+	var err error
+
+	// Parse from_date and to_date
+	fromDate, err = ParseDatetime(fromDateStr, datetimeFormats, true, defaultFromDate)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid from_date format"})
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": fmt.Sprintf("Invalid from_date format: %s", err.Error())})
 		return
 	}
 
-	toDate, err := time.Parse("2006-01-02 15:04:05", req.ToDate)
+	toDate, err = ParseDatetime(toDateStr, datetimeFormats, false, defaultToDate)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid to_date format"})
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": fmt.Sprintf("Invalid to_date format: %s", err.Error())})
 		return
 	}
 
-	// Ensure fromDate is not after toDate
+	// Validate date range
 	if fromDate.After(toDate) {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "from_date cannot be after to_date"})
 		return
 	}
 
-	// Convert to Unix timestamps
+	// Convert dates to Unix timestamps
 	fromDateUnix := fromDate.Unix()
 	toDateUnix := toDate.Unix()
 
-	// Get customer ID from somewhere (e.g., request context or headers)
-	// Here, I'm assuming a hardcoded value for the example
-	iCustomer := 123 // Replace with dynamic value
+	// Log date range for debugging
+	fmt.Printf("[%s] From Date: %d, To Date: %d\n", currentTime.Format("2006-01-02 15:04:05"), fromDateUnix, toDateUnix)
 
-	// Define pagination parameters (default to page 1 and pageSize 10)
-	page := 1
-	pageSize := 10
-
-	ctx, cancel := context.WithTimeout(c.Request.Context(), common.Timeouts.User.Write)
-	defer cancel()
-
-	// Fetch the XDR data using the repository method
-	xdrData, err := h.xdrRepo.GetXDRList(ctx, iCustomer, fromDateUnix, toDateUnix, page, pageSize)
+	// Call the function to get XDR list (replace this with actual repository call)
+	xdrList, err := h.xdrRepo.GetXDRList(iCustomer, fromDateUnix, toDateUnix, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Error fetching XDR data"})
 		return
 	}
 
-	// Return the fetched XDR data
-	c.JSON(http.StatusOK, gin.H{
-		"status":   "success",
-		"xdr_data": xdrData,
-	})
+	// Return the XDR data
+	c.JSON(http.StatusOK, gin.H{"status": "success", "data": xdrList})
 }
 
 // getXDRByI_XDR handles fetching XDR data for a specific i_xdr

@@ -8,10 +8,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func InitRoutes(rg *gin.RouterGroup, mongoDB *mongo.Database, config *common.AppConfig) {
+func InitRoutes(rg *gin.RouterGroup, mongoDB *mongo.Database, config *common.AppConfig, portaOneClient portaone.PortaOneClient) {
 	userRepo := domain.NewUserRepository(mongoDB)
 	xdrRepo := domain.NewXDRRepository(mongoDB)
-	portaOneClient := portaone.NewPortaOneClient()
 
 	registerAliveRoute(rg)
 

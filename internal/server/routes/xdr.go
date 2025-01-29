@@ -4,6 +4,7 @@ import (
 	"github.com/Rafin000/call-recording-service-v2/internal/domain"
 	"github.com/Rafin000/call-recording-service-v2/internal/infra/portaone"
 	"github.com/Rafin000/call-recording-service-v2/internal/server/handlers"
+	"github.com/Rafin000/call-recording-service-v2/internal/server/middlewares"
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,7 +15,7 @@ func registerXDRRoutes(rg *gin.RouterGroup, xdrRepo domain.XDRRepository, portao
 
 	// Routes that require normal user authentication
 	xdrGroup := rg.Group("/")
-	// xdrGroup.Use(middlewares.TokenRequired().
+	xdrGroup.Use(middlewares.TokenRequired())
 	{
 		xdrGroup.POST("/today", xdrHandler.GetXDR)
 		xdrGroup.POST("/recording/:i_xdr", xdrHandler.GetCallRecording)
