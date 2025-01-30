@@ -1,0 +1,24 @@
+app:
+  env: dev 
+  gin_mode: debug 
+  server_address: "0.0.0.0:8001"
+  secret_key: "my_precious"
+  s3_bucket_name: "recording"
+
+mongodb:
+  url: "mongodb://root:example@118.67.215.85:27017"
+  database: "record"
+
+redis:
+  host: "localhost"
+  port: 6379
+  password: ""
+  db: 0
+
+portaone:
+  username: "shahed.mehbub"
+  password: "Asdf@1234!"
+
+# db:
+#   url: "postgres://postgres:postgres@localhost/call_recording?sslmode=disable&timezone=UTC"
+

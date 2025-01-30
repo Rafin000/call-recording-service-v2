@@ -23,7 +23,7 @@ func (jm *JobManager) RegisterJobs() {
 	// Register individual job files here
 	// RegisterCleanupJobs(jm.Scheduler)
 	// RegisterNotificationJobs(jm.Scheduler)
-	// RegisterReportJobs(jm.Scheduler)
+	RegisterBackupJobs(jm.Scheduler)
 
 	// Start the scheduler asynchronously
 	jm.Scheduler.StartAsync()
