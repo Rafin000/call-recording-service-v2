@@ -59,7 +59,7 @@ func NewServer(ctx context.Context) (*Server, error) {
 	router := setupRouter(cfg.App)
 
 	// Initialize JobManager
-	jobManager := cron.NewJobManager()
+	jobManager := cron.NewJobManager(ctx, mongoDB, portaOneClient, cfg.App)
 	jobManager.RegisterJobs()
 
 	s := &Server{

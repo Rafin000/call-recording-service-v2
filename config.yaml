@@ -3,7 +3,11 @@ app:
   gin_mode: debug 
   server_address: "0.0.0.0:8001"
   secret_key: "my_precious"
-  s3_bucket_name: "recording"
+  s3_bucket_name: "recording_2"
+  s3_endpoint_url: "https://s3.brilliant.com.bd"
+  aws_region: ""
+  aws_access_key: "PMZGI52D1C91JY2KO1IX"
+  aws_secret_access_key: "BPv7eRAsRyZDUWIwnnn24jP1YVsIbtQIdt6lrhrR"
 
 mongodb:
   url: "mongodb://root:example@118.67.215.85:27017"

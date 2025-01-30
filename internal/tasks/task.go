@@ -1,4 +1,4 @@
-package task
+package tasks
 
 import (
 	"context"
@@ -7,13 +7,16 @@ import (
 
 	"github.com/Rafin000/call-recording-service-v2/internal/common"
 	"github.com/Rafin000/call-recording-service-v2/internal/domain"
-	"github.com/gin-gonic/gin"
+	"github.com/Rafin000/call-recording-service-v2/internal/infra/portaone"
 )
 
-func BackupTask(userRepo domain.UserRepository, c *gin.Context) {
-	ctx, cancel := context.WithTimeout(c.Request.Context(), common.Timeouts.User.Write)
-	defer cancel()
-
+func BackupTask(
+	userRepo domain.UserRepository,
+	XDRRepo domain.XDRRepository,
+	ctx context.Context,
+	cfg common.AppSettings,
+	portaOneClient portaone.PortaOneClient,
+) {
 	customers := iCustomerList(userRepo, ctx)
 
 	currentTime := time.Now().UTC().Add(6 * time.Hour)
@@ -25,7 +28,7 @@ func BackupTask(userRepo domain.UserRepository, c *gin.Context) {
 	dateString := previousTime.Format("2006-01-02")
 
 	for _, customer := range customers {
-		xdrList := getXdrList(customer, startTime, endTime)
-		downloadRecordings(xdrList, customer, dateString)
+		xdrList := GetXDRList(customer, startTime, endTime, portaOneClient, ctx)
+		DownloadRecordings(xdrList, customer, dateString, cfg, portaOneClient, ctx, XDRRepo)
 	}
 }

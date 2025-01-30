@@ -3,9 +3,12 @@ package domain
 import (
 	"context"
 	"log"
+	"log/slog"
 	"math"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -14,6 +17,8 @@ import (
 type XDRRepository interface {
 	GetXDRList(ctx context.Context, iCustomer int, fromDateUnix, toDateUnix int64, page, pageSize int) (map[string]interface{}, error)
 	GetXDRByIXDR(ctx context.Context, iXDR int) (bson.M, error)
+	PostXDRList(ctx context.Context, data bson.M) (primitive.ObjectID, error)
+	AcknowledgeXDRList(ctx context.Context, id primitive.ObjectID, s3Path string) error
 }
 
 // xdrRepository implements XDRRepository
@@ -101,4 +106,41 @@ func (repo *xdrRepository) GetXDRByIXDR(ctx context.Context, iXDR int) (bson.M, 
 	}
 
 	return result, nil
+}
+
+// AcknowledgeXDRList updates the XDR record with the S3 path.
+func (r *xdrRepository) AcknowledgeXDRList(ctx context.Context, id primitive.ObjectID, s3Path string) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	filter := bson.M{"_id": id}
+	update := bson.M{"$set": bson.M{"s3_path": s3Path}}
+
+	_, err := r.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		slog.Error("Failed to update XDR record", "Error", err)
+		return err
+	}
+
+	slog.Info("Successfully updated XDR record %v with S3 path: %s")
+	return nil
+}
+
+// PostXDRList inserts an XDR record and returns its ID.
+func (r *xdrRepository) PostXDRList(ctx context.Context, data bson.M) (primitive.ObjectID, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	result, err := r.collection.InsertOne(ctx, data)
+	if err != nil {
+		return primitive.NilObjectID, err
+	}
+
+	id, ok := result.InsertedID.(primitive.ObjectID)
+	if !ok {
+		slog.Error("Failed to parse inserted ID")
+		return primitive.NilObjectID, mongo.ErrNilDocument
+	}
+
+	return id, nil
 }

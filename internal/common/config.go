@@ -19,11 +19,15 @@ type AppConfig struct {
 }
 
 type AppSettings struct {
-	Env            string `mapstructure:"env"`
-	GinMode        string `mapstructure:"gin_mode"`
-	ServerAddress  string `mapstructure:"server_address"`
-	SECRET_KEY     string `mapstructure:"secret_key"`
-	S3_BUCKET_NAME string `mapstructure:"s3_bucket_name"`
+	Env                  string `mapstructure:"env"`
+	GinMode              string `mapstructure:"gin_mode"`
+	ServerAddress        string `mapstructure:"server_address"`
+	SECRET_KEY           string `mapstructure:"secret_key"`
+	S3_BUCKET_NAME       string `mapstructure:"s3_bucket_name"`
+	S3_ENDPOINT_URL      string `mapstructure:"s3_endpoint_url"`
+	AWS_ACCESS_KEY       string `mapstructure:"aws_access_key"`
+	AWS_REGION           string `mapstructure:"aws_region"`
+	AWS_SECRET_ACCESS_KEY string `mapstructure:"aws_secret_access_key"`
 }
 
 type PortaOneConfig struct {
