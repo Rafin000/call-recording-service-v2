@@ -1,13 +1,14 @@
 package routes
 
 import (
+	"github.com/Rafin000/call-recording-service-v2/internal/common"
 	"github.com/Rafin000/call-recording-service-v2/internal/domain"
 	"github.com/Rafin000/call-recording-service-v2/internal/server/handlers"
 	"github.com/gin-gonic/gin"
 )
 
-func registerUserRoutes(rg *gin.RouterGroup, userRepo domain.UserRepository) {
-	userHandler := handlers.NewUserHandler(userRepo)
+func registerUserRoutes(rg *gin.RouterGroup, userRepo domain.UserRepository, config common.AppConfig) {
+	userHandler := handlers.NewUserHandler(userRepo, config)
 
 	// Routes that require Admin authentication
 	adminGroup := rg.Group("/admin")

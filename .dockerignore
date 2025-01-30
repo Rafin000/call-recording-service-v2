@@ -1,0 +1,8 @@
+# Ignore unnecessary files and directories
+.git
+node_modules
+bin
+vendor
+*.md
+*.log
+*.env

@@ -6,7 +6,7 @@ app:
   s3_bucket_name: "recording"
 
 mongodb:
-  url: "mongodb://localhost:27017"
+  url: "mongodb://root:example@118.67.215.85:27017"
   database: "record"
 
 redis:
@@ -16,8 +16,8 @@ redis:
   db: 0
 
 portaone:
-  username: "******"
-  password: "*******"
+  username: "shahed.mehbub"
+  password: "Asdf@1234!"
 
 # db:
 #   url: "postgres://postgres:postgres@localhost/call_recording?sslmode=disable&timezone=UTC"

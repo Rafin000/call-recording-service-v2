@@ -15,8 +15,8 @@ func InitRoutes(rg *gin.RouterGroup, mongoDB *mongo.Database, config *common.App
 	registerAliveRoute(rg)
 
 	userGroup := rg.Group("/auth")
-	registerUserRoutes(userGroup, userRepo)
+	registerUserRoutes(userGroup, userRepo, *config)
 
 	xdrGroup := rg.Group("/xdrs")
-	registerXDRRoutes(xdrGroup, xdrRepo, portaOneClient)
+	registerXDRRoutes(xdrGroup, xdrRepo, portaOneClient, *config)
 }

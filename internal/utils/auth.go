@@ -8,16 +8,6 @@ import (
 	"github.com/golang-jwt/jwt"
 )
 
-var config *common.AppConfig
-
-func init() {
-	var err error
-	config, err = common.LoadConfig()
-	if err != nil {
-		panic("failed to load config: " + err.Error())
-	}
-}
-
 type JWTClaims struct {
 	Email     string  `json:"email"`
 	Role      string  `json:"role"`
@@ -26,7 +16,7 @@ type JWTClaims struct {
 	jwt.StandardClaims
 }
 
-func DecodeAuthToken(token string) (*JWTClaims, error) {
+func DecodeAuthToken(token string, config common.AppConfig) (*JWTClaims, error) {
 	claims := &JWTClaims{}
 	tokenParsed, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
 		return []byte(config.App.SECRET_KEY), nil
@@ -46,7 +36,7 @@ func DecodeAuthToken(token string) (*JWTClaims, error) {
 	return claims, nil
 }
 
-func GenerateAccessToken(payloads map[string]interface{}) (string, error) {
+func GenerateAccessToken(payloads map[string]interface{}, config common.AppConfig) (string, error) {
 	claims := &JWTClaims{
 		Email:     payloads["email"].(string),
 		Role:      payloads["role"].(string),
@@ -61,7 +51,7 @@ func GenerateAccessToken(payloads map[string]interface{}) (string, error) {
 	return token.SignedString([]byte(config.App.SECRET_KEY))
 }
 
-func GenerateRefreshToken(payloads map[string]interface{}) (string, error) {
+func GenerateRefreshToken(payloads map[string]interface{}, config common.AppConfig) (string, error) {
 	claims := &JWTClaims{
 		Email:     payloads["email"].(string),
 		Role:      payloads["role"].(string),

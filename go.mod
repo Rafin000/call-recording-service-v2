@@ -1,6 +1,6 @@
 module github.com/Rafin000/call-recording-service-v2
 
-go 1.23.3
+go 1.23
 
 require (
 	github.com/gin-contrib/cors v1.7.3

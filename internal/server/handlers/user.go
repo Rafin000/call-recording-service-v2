@@ -17,11 +17,13 @@ import (
 
 type UserHandler struct {
 	userRepo domain.UserRepository
+	config   common.AppConfig
 }
 
-func NewUserHandler(userRepo domain.UserRepository) *UserHandler {
+func NewUserHandler(userRepo domain.UserRepository, config common.AppConfig) *UserHandler {
 	return &UserHandler{
 		userRepo: userRepo,
+		config:   config,
 	}
 }
 
@@ -121,13 +123,13 @@ func (h *UserHandler) Login(c *gin.Context) {
 		"i_customer": user.ICustomer,
 	}
 
-	accessToken, err := utils.GenerateAccessToken(payloads)
+	accessToken, err := utils.GenerateAccessToken(payloads, h.config)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to generate access tokens."})
 		return
 	}
 
-	refreshToken, err := utils.GenerateRefreshToken(payloads)
+	refreshToken, err := utils.GenerateRefreshToken(payloads, h.config)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to generate refresh tokens."})
 		return
@@ -160,13 +162,13 @@ func (h *UserHandler) RefreshToken(c *gin.Context) {
 		"i_customer": user.ICustomer,
 	}
 
-	accessToken, err := utils.GenerateAccessToken(payloads)
+	accessToken, err := utils.GenerateAccessToken(payloads, h.config)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to generate access tokens."})
 		return
 	}
 
-	refreshToken, err := utils.GenerateRefreshToken(payloads)
+	refreshToken, err := utils.GenerateRefreshToken(payloads, h.config)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to generate access tokens."})
 		return

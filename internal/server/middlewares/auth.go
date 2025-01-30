@@ -5,12 +5,13 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Rafin000/call-recording-service-v2/internal/common"
 	"github.com/Rafin000/call-recording-service-v2/internal/utils"
 	"github.com/gin-gonic/gin"
 )
 
 // AdminTokenRequired is a middleware that checks if the user has a valid admin token.
-func AdminTokenRequired() gin.HandlerFunc {
+func AdminTokenRequired(config common.AppConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Retrieve the Authorization header
 		authHeader := c.GetHeader("Authorization")
@@ -22,7 +23,7 @@ func AdminTokenRequired() gin.HandlerFunc {
 
 		// Extract the token
 		token := strings.TrimSpace(strings.Replace(authHeader, "Bearer", "", 1))
-		payload, err := utils.DecodeAuthToken(token)
+		payload, err := utils.DecodeAuthToken(token, config)
 		if err != nil {
 			if err.Error() == "expired" {
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "Expired Token"})
@@ -54,7 +55,7 @@ func AdminTokenRequired() gin.HandlerFunc {
 }
 
 // TokenRequired is a middleware that checks if the user has a valid token.
-func TokenRequired() gin.HandlerFunc {
+func TokenRequired(config common.AppConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Retrieve the Authorization header
 		authHeader := c.GetHeader("Authorization")
@@ -75,7 +76,7 @@ func TokenRequired() gin.HandlerFunc {
 		token := strings.TrimSpace(strings.Replace(authHeader, "Bearer", "", 1))
 
 		// Decode and validate the token
-		payload, err := utils.DecodeAuthToken(token)
+		payload, err := utils.DecodeAuthToken(token, config)
 		if err != nil {
 			// Handle token errors
 			if err.Error() == "expired" {

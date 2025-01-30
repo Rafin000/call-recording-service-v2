@@ -21,9 +21,9 @@ func NewJobManager() *JobManager {
 // RegisterJobs sets up all scheduled jobs.
 func (jm *JobManager) RegisterJobs() {
 	// Register individual job files here
-	RegisterCleanupJobs(jm.Scheduler)
-	RegisterNotificationJobs(jm.Scheduler)
-	RegisterReportJobs(jm.Scheduler)
+	// RegisterCleanupJobs(jm.Scheduler)
+	// RegisterNotificationJobs(jm.Scheduler)
+	// RegisterReportJobs(jm.Scheduler)
 
 	// Start the scheduler asynchronously
 	jm.Scheduler.StartAsync()
