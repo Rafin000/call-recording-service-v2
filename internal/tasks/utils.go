@@ -39,6 +39,7 @@ func iCustomerList(userRepo domain.UserRepository, ctx context.Context) []string
 
 // GetXDRList fetches the XDR list for a given customer within a time range.
 func GetXDRList(iCustomer string, startTime string, endTime string, portaOneClient portaone.PortaOneClient, ctx context.Context) []map[string]interface{} {
+	slog.Info("***********************ENTERED GETXDRList******************")
 	slog.Info("Fetching XDR list", "iCustomer", iCustomer, "startTime", startTime, "endTime", endTime)
 
 	// Convert iCustomer to an integer
@@ -47,9 +48,11 @@ func GetXDRList(iCustomer string, startTime string, endTime string, portaOneClie
 		slog.Error("Error converting iCustomer to integer", "error", err)
 		return nil
 	}
+	slog.Debug("Converted iCustomer to integer", "iCustomerInt", iCustomerInt)
 
 	// Get session ID
 	sessionID, _ := portaOneClient.GetSessionID(ctx)
+	slog.Debug("Session ID retrieved", "sessionID", sessionID)
 
 	// Prepare the request data
 	authInfo := map[string]string{"session_id": sessionID}
@@ -61,6 +64,9 @@ func GetXDRList(iCustomer string, startTime string, endTime string, portaOneClie
 		"to_date":        endTime,
 	}
 
+	// Log the prepared parameters
+	slog.Debug("Request parameters", "params", params)
+
 	data := map[string]string{
 		"auth_info": mustJSON(authInfo),
 		"params":    mustJSON(params),
@@ -68,6 +74,7 @@ func GetXDRList(iCustomer string, startTime string, endTime string, portaOneClie
 
 	// Encode data as form-urlencoded
 	reqBody := EncodeFormData(data)
+	slog.Debug("Encoded request body", "reqBody", reqBody)
 
 	// Make the HTTP request
 	xdrURL := "https://pbwebsrv.intercloud.com.bd/rest/Customer/get_customer_xdrs"
@@ -76,6 +83,8 @@ func GetXDRList(iCustomer string, startTime string, endTime string, portaOneClie
 		slog.Error("Error creating request", "error", err)
 		return nil
 	}
+	slog.Debug("Request created successfully", "xdrURL", xdrURL)
+
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	client := &http.Client{}
@@ -86,8 +95,11 @@ func GetXDRList(iCustomer string, startTime string, endTime string, portaOneClie
 	}
 	defer resp.Body.Close()
 
+	slog.Debug("Response received", "statusCode", resp.StatusCode)
+
 	if resp.StatusCode != http.StatusOK {
-		slog.Error("Error response from server", "status", resp.Status)
+		body, _ := io.ReadAll(resp.Body)
+		slog.Error("Error response from server", "status", resp.Status, "responseBody", string(body))
 		return nil
 	}
 
@@ -97,12 +109,15 @@ func GetXDRList(iCustomer string, startTime string, endTime string, portaOneClie
 		slog.Error("Error decoding JSON response", "error", err)
 		return nil
 	}
+	slog.Debug("Response decoded successfully", "result", result)
 
 	// Extract XDR list
 	if xdrList, ok := result["xdr_list"].([]map[string]interface{}); ok {
+		slog.Debug("XDR list successfully extracted", "xdrList", xdrList)
 		return xdrList
 	}
 
+	slog.Debug("XDR list not found in response")
 	return nil
 }
 
@@ -126,6 +141,7 @@ func EncodeFormData(data map[string]string) string {
 }
 
 func DownloadRecordings(xdrList []map[string]interface{}, iCustomer string, dateString string, cfg common.AppSettings, portaOneClient portaone.PortaOneClient, ctx context.Context, xdrRepo domain.XDRRepository) {
+	slog.Info("***********************ENTERED DOWNLOAD RECORDINGS******************")
 	recordingURL := "https://pbwebsrv.intercloud.com.bd/rest/CDR/get_call_recording"
 
 	// Create recordings directory if it doesn't exist

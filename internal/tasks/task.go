@@ -19,16 +19,26 @@ func BackupTask(
 ) {
 	customers := iCustomerList(userRepo, ctx)
 
-	currentTime := time.Now().UTC().Add(6 * time.Hour)
-	fmt.Println("Current time:", currentTime)
+	fmt.Println("*********************ENTERED BACKUP TASK**************")
+
+	currentTime := time.Now().UTC()
 	previousTime := currentTime.Add(-24 * time.Hour)
 
-	startTime := previousTime.Format("2006-01-02 00:00:00")
-	endTime := previousTime.Format("2006-01-02 23:59:59")
-	dateString := previousTime.Format("2006-01-02")
+	fmt.Println("*********************Current time:", currentTime)
+	fmt.Println("*********************Previous time (24 hours ago):", previousTime)
+
+	previousTimeAdjusted := previousTime.Add(12 * time.Hour)
+
+	startTimeStr := previousTimeAdjusted.Format("2006-01-02 00:00:00")
+	endTimeAdjusted := previousTimeAdjusted.Add(24 * time.Hour).Add(-time.Second)
+	endTimeStr := endTimeAdjusted.Format("2006-01-02 15:04:05")
+
+	fmt.Println("Start Time:", startTimeStr)
+	fmt.Println("End Time:", endTimeStr)
+	dateString := previousTimeAdjusted.Format("2006-01-02")
 
 	for _, customer := range customers {
-		xdrList := GetXDRList(customer, startTime, endTime, portaOneClient, ctx)
+		xdrList := GetXDRList(customer, startTimeStr, endTimeStr, portaOneClient, ctx)
 		DownloadRecordings(xdrList, customer, dateString, cfg, portaOneClient, ctx, XDRRepo)
 	}
 }
